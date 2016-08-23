@@ -20,17 +20,18 @@
 # version of vcsh; the master branch is supposed to be clean at all times
 # so you can most likely just use it nonetheless
 VERSION='1.20151229'
-SELF=$(basename $0)
+SELF=$(basename "$0")
 
 fatal() {
 	echo "$SELF: fatal: $1" >&2
-	[ -z $2 ] && exit 1
-	exit $2
+	[ -z "$2" ] && exit 1
+	exit "$2"
 }
 
 # We need to run getops as soon as possible so we catch -d and other
 # options that will modify our behaviour.
 # Commands are handled at the end of this script.
+#   shellcheck disable=SC2034
 while getopts "c:dv" flag; do
 	if [ x"$1" = x'-d' ] || [ x"$1" = x'--debug' ]; then
 		set -vx
@@ -49,6 +50,7 @@ done
 
 source_all() {
 	# Source file even if it's in $PWD and does not have any slashes in it
+    #   shellcheck source=/dev/null
 	case $1 in
 		*/*) . "$1";;
 		*)   . "$PWD/$1";;
@@ -58,10 +60,12 @@ source_all() {
 
 # Read configuration and set defaults if anything's not set
 [ -n "$VCSH_DEBUG" ]                  && set -vx
-: ${XDG_CONFIG_HOME:="$HOME/.config"}
+: "${XDG_CONFIG_HOME:="$HOME/.config"}"
 
 # Read configuration files if there are any
+#   shellcheck disable=SC1091
 [ -r "/etc/vcsh/config" ]             && . "/etc/vcsh/config"
+#   shellcheck source=/dev/null
 [ -r "$XDG_CONFIG_HOME/vcsh/config" ] && . "$XDG_CONFIG_HOME/vcsh/config"
 if [ -n "$VCSH_OPTION_CONFIG" ]; then
 	# Source $VCSH_OPTION_CONFIG if it can be read and is in $PWD of $PATH
@@ -74,13 +78,13 @@ fi
 [ -n "$VCSH_DEBUG" ]                  && set -vx
 
 # Read defaults
-: ${VCSH_REPO_D:="$XDG_CONFIG_HOME/vcsh/repo.d"}
-: ${VCSH_HOOK_D:="$XDG_CONFIG_HOME/vcsh/hooks-enabled"}
-: ${VCSH_OVERLAY_D:="$XDG_CONFIG_HOME/vcsh/overlays-enabled"}
-: ${VCSH_BASE:="$HOME"}
-: ${VCSH_GITIGNORE:=exact}
-: ${VCSH_GITATTRIBUTES:=none}
-: ${VCSH_WORKTREE:=absolute}
+: "${VCSH_REPO_D:="$XDG_CONFIG_HOME/vcsh/repo.d"}"
+: "${VCSH_HOOK_D:="$XDG_CONFIG_HOME/vcsh/hooks-enabled"}"
+: "${VCSH_OVERLAY_D:="$XDG_CONFIG_HOME/vcsh/overlays-enabled"}"
+: "${VCSH_BASE:="$HOME"}"
+: "${VCSH_GITIGNORE:=exact}"
+: "${VCSH_GITATTRIBUTES:=none}"
+: "${VCSH_WORKTREE:=absolute}"
 
 if [ ! "x$VCSH_GITIGNORE" = 'xexact' ] && [ ! "x$VCSH_GITIGNORE" = 'xnone' ] && [ ! "x$VCSH_GITIGNORE" = 'xrecursive' ]; then
 	fatal "'\$VCSH_GITIGNORE' must equal 'exact', 'none', or 'recursive'" 1
@@ -135,11 +139,11 @@ help() {
 }
 
 debug() {
-	[ -n "$VCSH_DEBUG" ] && echo "$SELF: debug: $@"
+	[ -n "$VCSH_DEBUG" ] && echo "$SELF: debug: $*"
 }
 
 verbose() {
-	if [ -n "$VCSH_DEBUG" ] || [ -n "$VCSH_VERBOSE" ]; then echo "$SELF: verbose: $@"; fi
+	if [ -n "$VCSH_DEBUG" ] || [ -n "$VCSH_VERBOSE" ]; then echo "$SELF: verbose: $*"; fi
 }
 
 error() {
@@ -157,7 +161,7 @@ clone() {
 	git checkout -b "$VCSH_BRANCH" || return $?
 	git config branch."$VCSH_BRANCH".remote origin
 	git config branch."$VCSH_BRANCH".merge  refs/heads/"$VCSH_BRANCH"
-	if [ $(git ls-remote origin "$VCSH_BRANCH" 2> /dev/null | wc -l ) -lt 1 ]; then
+	if [ "$(git ls-remote origin "$VCSH_BRANCH" 2> /dev/null | wc -l )" -lt 1 ]; then
 		info "remote is empty, not merging anything.
   You should add files to your new repository."
 		exit
@@ -169,7 +173,7 @@ clone() {
 		git fetch origin
 	fi
 	hook pre-merge
-	git ls-tree -r --name-only origin/"$VCSH_BRANCH" | (while read object; do
+	git ls-tree -r --name-only origin/"$VCSH_BRANCH" | (while read -r object; do
 		[ -e "$object" ] &&
 			error "'$object' exists." &&
 			VCSH_CONFLICT=1
@@ -208,10 +212,10 @@ $files
 
 AGAIN, THIS WILL DELETE YOUR DATA!
 To continue, type 'Yes, do as I say'"
-	read answer
+	read -r answer
 	[ "x$answer" = 'xYes, do as I say' ] || exit 16
 	for file in $files; do
-		rm -f $file || info "could not delete '$file', continuing with deletion"
+		rm -f "$file" || info "could not delete '$file', continuing with deletion"
 	done
 	rm -rf "$GIT_DIR" || error "could not delete '$GIT_DIR'"
 }
@@ -268,7 +272,7 @@ init() {
 
 list() {
 	for repo in "$VCSH_REPO_D"/*.git; do
-		[ -d "$repo" ] && [ -r "$repo" ] && echo "$(basename "$repo" .git)"
+		[ -d "$repo" ] && [ -r "$repo" ] && basename "$repo" .git
 	done
 }
 
@@ -293,7 +297,7 @@ list_tracked_helper() {
 }
 
 list_tracked_by() {
-	list_tracked '' $2
+	list_tracked '' "$2"
 }
 
 list_untracked() {
@@ -307,6 +311,7 @@ list_untracked() {
 	exclude_standard_opt='--exclude-standard'
 	directory_opt="--directory"
 	shift 1
+    #   shellcheck disable=SC2034
 	while getopts "ar" flag; do
 		if [ x"$1" = x'-a' ]; then
 			unset exclude_standard_opt
@@ -319,33 +324,33 @@ list_untracked() {
 	VCSH_REPO_NAME=$1; export VCSH_REPO_NAME
 
 	if [ -n "$VCSH_REPO_NAME" ]; then
-		list_untracked_helper $VCSH_REPO_NAME
+		list_untracked_helper "$VCSH_REPO_NAME"
 	else
 		for VCSH_REPO_NAME in $(list); do
-			list_untracked_helper $VCSH_REPO_NAME
+			list_untracked_helper "$VCSH_REPO_NAME"
 		done
 	fi
-	cat $temp_file_untracked
+	cat "$temp_file_untracked"
 
 	unset directory_opt directory_component
-	rm -f $temp_file_others $temp_file_untracked $temp_file_untracked_copy || fatal 'Could not delete temp files'
+	rm -f "$temp_file_others" "$temp_file_untracked" "$temp_file_untracked_copy" || fatal 'Could not delete temp files'
 }
 
 list_untracked_helper() {
 	export GIT_DIR="$VCSH_REPO_D/$VCSH_REPO_NAME.git"
 	git ls-files --others $exclude_standard_opt "$directory_opt" | (
-		while read line; do
+		while read -r line; do
 			echo "$line"
 			directory_component=${line%%/*}
 			[ -d "$directory_component" ] && printf '%s/\n' "$directory_component"
 		done
-		) | sort -u > $temp_file_others
+		) | sort -u > "$temp_file_others"
 	if [ -z "$ran_once" ]; then
 		ran_once=1
-		cp $temp_file_others $temp_file_untracked || fatal 'Could not copy temp file'
+		cp "$temp_file_others" "$temp_file_untracked" || fatal 'Could not copy temp file'
 	fi
-	cp $temp_file_untracked $temp_file_untracked_copy || fatal 'Could not copy temp file'
-	comm -12 $temp_file_others $temp_file_untracked_copy > $temp_file_untracked
+	cp "$temp_file_untracked" "$temp_file_untracked_copy" || fatal 'Could not copy temp file'
+	comm -12 "$temp_file_others" "$temp_file_untracked_copy" > "$temp_file_untracked"
 }
 
 pull() {
@@ -404,11 +409,11 @@ status() {
 		COLORING="-c color.status=always"
 	fi
 	if [ -n "$VCSH_REPO_NAME" ]; then
-		status_helper $VCSH_REPO_NAME
+		status_helper "$VCSH_REPO_NAME"
 	else
 		for VCSH_REPO_NAME in $(list); do
-			STATUS=$(status_helper $VCSH_REPO_NAME "$COLORING")
-			[ -n "$STATUS" -o -z "$VCSH_STATUS_TERSE" ] && echo "$VCSH_REPO_NAME:"
+			STATUS="$(status_helper "$VCSH_REPO_NAME" "$COLORING")"
+			[ -n "$STATUS" ] || [ -z "$VCSH_STATUS_TERSE" ] && echo "$VCSH_REPO_NAME:"
 			[ -n "$STATUS" ]            && echo "$STATUS"
 			[ -z "$VCSH_STATUS_TERSE" ] && echo
 		done
@@ -419,13 +424,16 @@ status_helper() {
 	GIT_DIR=$VCSH_REPO_D/$1.git; export GIT_DIR
 	VCSH_GIT_OPTIONS=$2
 	use
+    #   shellcheck disable=SC1083
 	remote_tracking_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2> /dev/null) && {
+    #   shellcheck disable=SC2086
 		commits_behind=$(git log ..${remote_tracking_branch} --oneline | wc -l)
+    #   shellcheck disable=SC2086
 		commits_ahead=$(git log ${remote_tracking_branch}.. --oneline | wc -l)
-		[ ${commits_behind} -ne 0 ] && echo "Behind $remote_tracking_branch by $commits_behind commits"
-		[ ${commits_ahead} -ne 0 ] && echo "Ahead of $remote_tracking_branch by $commits_ahead commits"
+		[ "${commits_behind}" -ne 0 ] && echo "Behind $remote_tracking_branch by $commits_behind commits"
+		[ "${commits_ahead}" -ne 0 ] && echo "Ahead of $remote_tracking_branch by $commits_ahead commits"
 	}
-	git ${VCSH_GIT_OPTIONS} status --short --untracked-files='no'
+	git "${VCSH_GIT_OPTIONS}" status --short --untracked-files='no'
 	VCSH_COMMAND_RETURN_CODE=$?
 }
 
@@ -457,6 +465,7 @@ use() {
 }
 
 which() {
+    #   shellcheck disable=SC2030
 	output=$(for VCSH_REPO_NAME in $(list); do
 		get_files | grep -- "$VCSH_COMMAND_PARAMETER" | sed "s/^/$VCSH_REPO_NAME: /"
 	done | sort -u)
@@ -499,20 +508,23 @@ write_gitignore() {
 		fi
 	done
 	IFS=$OLDIFS
+    #   shellcheck disable=SC2031
 	if diff -N "$tempfile" "$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME" > /dev/null; then
 		rm -f "$tempfile" || error "could not delete '$tempfile'"
 		exit
 	fi
+    #   shellcheck disable=SC2031
 	if [ -e "$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME" ]; then
 		info "'$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME' differs from new data, moving it to '$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME.bak'"
 		mv -f "$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME" "$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME.bak" ||
 			fatal "could not move '$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME' to '$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME.bak'" 53
 	fi
+    #   shellcheck disable=SC2031
 	mv -f "$tempfile" "$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME" ||
 		fatal "could not move '$tempfile' to '$VCSH_BASE/.gitignore.d/$VCSH_REPO_NAME'" 53
 }
 
-debug $(git version)
+debug "$(git version)"
 
 if [ ! "x$VCSH_GITIGNORE" = 'xexact' ] && [ ! "x$VCSH_GITIGNORE" = 'xnone' ] && [ ! "x$VCSH_GITIGNORE" = 'xrecursive' ]; then
 	fatal "'\$VCSH_GITIGNORE' must equal 'exact', 'none', or 'recursive'" 1
@@ -646,12 +658,14 @@ verbose "$VCSH_COMMAND begin"
 VCSH_COMMAND=$(echo "$VCSH_COMMAND" | sed 's/-/_/g'); export VCSH_COMMAND
 
 # Source repo-specific configuration file
+#   shellcheck source=/dev/null
 [ -r "$XDG_CONFIG_HOME/vcsh/config.d/$VCSH_REPO_NAME" ] && . "$XDG_CONFIG_HOME/vcsh/config.d/$VCSH_REPO_NAME"
 
 # source overlay functions
 for overlay in "$VCSH_OVERLAY_D/$VCSH_COMMAND"* "$VCSH_OVERLAY_D/$VCSH_REPO_NAME.$VCSH_COMMAND"*; do
 	[ -r "$overlay" ] || continue
 	info "sourcing '$overlay'"
+    #   shellcheck source=/dev/null
 	. "$overlay"
 done
 
